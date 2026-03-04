@@ -38,7 +38,7 @@ public class Dickt extends JFrame {
 
         infoLabel = new JLabel("Search...", SwingConstants.CENTER);
         infoLabel.setForeground(Color.GRAY);
-        infoLabel.setFont(new Font("SansSerif", Font.ITALIC, 13));
+        infoLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
 
         resultContainer = new JPanel();
         resultContainer.setLayout(new BoxLayout(resultContainer, BoxLayout.Y_AXIS));
@@ -70,9 +70,9 @@ public class Dickt extends JFrame {
         });
 
         setLocationRelativeTo(null);
-        setVisible(true);
+        setVisible(true);    
     }
-
+    
     private void handleSearch() {
         String word = searchInput.getText().trim();
         if (word.isEmpty()) return;
