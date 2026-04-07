@@ -5,40 +5,47 @@ on:
     types: [created]
 
 jobs:
+
+  # ─────────────────────────────
+  # LINUX BUILD
+  # ─────────────────────────────
   build-linux:
     runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: Setup JDK 21
-        uses: actions/setup-java@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download org.json library
+      - name: Download JSON lib
         run: |
           mkdir -p lib
           curl -L -o lib/json.jar https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
 
-      - name: Compile and package JAR
-        run: |
-          javac -cp ".:lib/json.jar" Dickt.java
-          cat > manifest.txt << EOF
-          Main-Class: Dickt
-          Class-Path: json.jar
-          EOF
-          jar cvfm Dickt.jar manifest.txt Dickt.class
+      - name: Compile
+        run: javac -cp ".:lib/json.jar" Dickt.java
 
-      - name: Prepare input folder
+      - name: Create manifest
+        run: |
+          echo "Main-Class: Dickt" > manifest.txt
+          echo "Class-Path: json.jar" >> manifest.txt
+
+      - name: Package JAR
+        run: jar cvfm Dickt.jar manifest.txt Dickt.class
+
+      - name: Prepare input
         run: |
           mkdir -p input
           mv Dickt.jar input/
           cp lib/json.jar input/json.jar
 
-      - name: Build Linux AppImage + .deb
+      - name: Build Linux packages
         run: |
+          mkdir -p releases/linux
+
           jpackage \
             --type app-image \
             --input input \
@@ -46,10 +53,7 @@ jobs:
             --main-class Dickt \
             --name Dickt \
             --dest releases/linux \
-            --app-version ${{ github.event.release.tag_name }} \
-            --description "A sleek floating dictionary widget" \
-            --vendor "abhaypratap" \
-            --linux-app-category Utility
+            --app-version 1.0
 
           jpackage \
             --type deb \
@@ -58,19 +62,16 @@ jobs:
             --main-class Dickt \
             --name Dickt \
             --dest releases/linux \
-            --app-version ${{ github.event.release.tag_name }} \
-            --description "A sleek floating dictionary widget" \
-            --vendor "abhaypratap" \
-            --linux-app-category Utility
+            --app-version 1.0
 
-      - name: Create single-file .AppImage
+      - name: Create AppImage
         run: |
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
           chmod +x appimagetool
           ./appimagetool releases/linux/Dickt Dickt.AppImage
           mv Dickt.AppImage releases/linux/
 
-      - name: Upload Linux assets to Release
+      - name: Upload Linux assets
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -79,109 +80,62 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+
+  # ─────────────────────────────
+  # WINDOWS BUILD
+  # ─────────────────────────────
   build-windows:
     runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
 
-      - name: Setup JDK 21
-        uses: actions/setup-java@v4
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download org.json library
+      - name: Download JSON lib
         run: |
           mkdir lib
           curl -L -o lib/json.jar https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
 
-      - name: Compile and package JAR
+      - name: Compile
+        shell: bash
+        run: javac -cp ".:lib/json.jar" Dickt.java
+
+      - name: Create manifest
         shell: bash
         run: |
-          javac -cp ".:lib/json.jar" Dickt.java
-          cat > manifest.txt << EOF
-          Main-Class: Dickt
-          Class-Path: json.jar
-          EOF
-          jar cvfm Dickt.jar manifest.txt Dickt.class
+          echo "Main-Class: Dickt" > manifest.txt
+          echo "Class-Path: json.jar" >> manifest.txt
 
-      - name: Prepare input folder
+      - name: Package JAR
+        shell: bash
+        run: jar cvfm Dickt.jar manifest.txt Dickt.class
+
+      - name: Prepare input
+        shell: bash
         run: |
           mkdir input
           mv Dickt.jar input/
           cp lib/json.jar input/json.jar
 
-      - name: Build Windows .exe installer
+      - name: Build Windows EXE
         run: |
-          jpackage `
-            --type exe `
-            --input input `
-            --main-jar Dickt.jar `
-            --main-class Dickt `
-            --name Dickt `
-            --dest releases/windows `
-            --app-version ${{ github.event.release.tag_name }} `
-            --description "A sleek floating dictionary widget" `
-            --vendor "abhaypratap" `
+          jpackage ^
+            --type exe ^
+            --input input ^
+            --main-jar Dickt.jar ^
+            --main-class Dickt ^
+            --name Dickt ^
+            --dest releases\windows ^
+            --app-version 1.0 ^
             --win-dir-chooser
 
-      - name: Upload Windows .exe to Release
+      - name: Upload Windows asset
         uses: softprops/action-gh-release@v2
         with:
           files: releases/windows/Dickt*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup JDK 21
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Download org.json library
-        run: |
-          mkdir -p lib
-          curl -L -o lib/json.jar https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
-
-      - name: Compile and package JAR
-        run: |
-          javac -cp ".:lib/json.jar" Dickt.java
-          cat > manifest.txt << EOF
-          Main-Class: Dickt
-          Class-Path: json.jar
-          EOF
-          jar cvfm Dickt.jar manifest.txt Dickt.class
-
-      - name: Prepare input folder
-        run: |
-          mkdir -p input
-          mv Dickt.jar input/
-          cp lib/json.jar input/json.jar
-
-      - name: Build macOS .dmg
-        run: |
-          jpackage \
-            --type dmg \
-            --input input \
-            --main-jar Dickt.jar \
-            --main-class Dickt \
-            --name Dickt \
-            --dest releases/macos \
-            --app-version ${{ github.event.release.tag_name }} \
-            --description "A sleek floating dictionary widget" \
-            --vendor "abhaypratap" \
-            --mac-package-name Dickt
-
-      - name: Upload macOS .dmg to Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: releases/macos/Dickt*.dmg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
