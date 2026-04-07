@@ -1,119 +1,4 @@
-name: Build Dickt Release --- test phase
-on:
-  release:
-    types: [created]
-
-jobs:
-  # ─────────────────────────────
-  # LINUX BUILD
-  # ─────────────────────────────
-  build-linux:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: 'temurin'
-
-      - name: Download JSON lib
-        run: |
-          mkdir -p lib
-          curl -L -o lib/json.jar https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
-
-      - name: Compile
-        run: javac -cp ".:lib/json.jar" Dickt.java
-
-      - name: Create manifest
-        run: |
-          echo "Main-Class: Dickt" > manifest.txt
-          echo "Class-Path: json.jar" >> manifest.txt
-
-      - name: Package JAR
-        run: jar cvfm Dickt.jar manifest.txt Dickt.class
-
-      - name: Prepare input
-        run: |
-          mkdir -p input
-          mv Dickt.jar input/
-          cp lib/json.jar input/json.jar
-
-      - name: Build Linux packages
-        run: |
-          mkdir -p releases/linux
-          jpackage \
-            --type app-image \
-            --input input \
-            --main-jar Dickt.jar \
-            --main-class Dickt \
-            --name Dickt \
-            --dest releases/linux \
-            --app-version 1.0
-          jpackage \
-            --type deb \
-            --input input \
-            --main-jar Dickt.jar \
-            --main-class Dickt \
-            --name Dickt \
-            --dest releases/linux \
-            --app-version 1.0
-
-      # FIX 3: Install libfuse2 so appimagetool (itself an AppImage) can run
-      # FIX 4: Build a proper AppDir structure before calling appimagetool
-      - name: Install FUSE
-        run: sudo apt-get install -y libfuse2
-
-      - name: Create AppImage
-        run: |
-          # Build a valid AppDir from the jpackage app-image output
-          APPDIR="DicktAppDir"
-          mkdir -p "$APPDIR/usr/bin"
-          cp -r releases/linux/Dickt/* "$APPDIR/"
-
-          # AppRun entrypoint (required by AppImage spec)
-          cat > "$APPDIR/AppRun" << 'EOF'
-          #!/bin/bash
-          SELF=$(readlink -f "$0")
-          HERE="${SELF%/*}"
-          exec "$HERE/bin/Dickt" "$@"
-          EOF
-          chmod +x "$APPDIR/AppRun"
-
-          # .desktop file (required by appimagetool)
-          cat > "$APPDIR/Dickt.desktop" << 'EOF'
-          [Desktop Entry]
-          Name=Dickt
-          Exec=Dickt
-          Icon=Dickt
-          Type=Application
-          Categories=Utility;
-          EOF
-
-          # Icon (appimagetool needs one; use a placeholder if you have no icon)
-          # Replace this with your actual icon if you have one:
-          cp releases/linux/Dickt/lib/Dickt.png "$APPDIR/Dickt.png" 2>/dev/null || \
-            wget -q -O "$APPDIR/Dickt.png" \
-              https://raw.githubusercontent.com/nicehash/NiceHashQuickMiner/master/icons/nhqm_256.png
-
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage \
-            -O appimagetool
-          chmod +x appimagetool
-          ./appimagetool "$APPDIR" releases/linux/Dickt.AppImage
-
-      - name: Upload Linux assets
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            releases/linux/Dickt.AppImage
-            releases/linux/*.deb
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  # ─────────────────────────────
-  # WINDOWS BUILD
-  # ─────────────────────────────
-  build-windows:
+build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -123,7 +8,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      # FIX 1: Use shell: bash + mkdir -p so it never fails on existing dir
       - name: Download JSON lib
         shell: bash
         run: |
@@ -151,8 +35,6 @@ jobs:
           mv Dickt.jar input/
           cp lib/json.jar input/json.jar
 
-      # FIX 2: Use shell: cmd so ^ line continuation works correctly,
-      #         OR rewrite as a single line / use PowerShell \ continuation
       - name: Build Windows EXE
         shell: cmd
         run: |
@@ -164,7 +46,8 @@ jobs:
             --name Dickt ^
             --dest releases\windows ^
             --app-version 1.0 ^
-            --win-dir-chooser
+            --win-dir-chooser ^
+            --vendor "Abhaypratap08"
 
       - name: Upload Windows asset
         uses: softprops/action-gh-release@v2
