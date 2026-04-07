@@ -1,4 +1,115 @@
-build-windows:
+name: Build Dickt Release --- test phase
+on:
+  release:
+    types: [created]
+
+jobs:
+  # ─────────────────────────────
+  # LINUX BUILD
+  # ─────────────────────────────
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Download JSON lib
+        run: |
+          mkdir -p lib
+          curl -L -o lib/json.jar https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
+
+      - name: Compile
+        run: javac -cp ".:lib/json.jar" Dickt.java
+
+      - name: Create manifest
+        run: |
+          echo "Main-Class: Dickt" > manifest.txt
+          echo "Class-Path: json.jar" >> manifest.txt
+
+      - name: Package JAR
+        run: jar cvfm Dickt.jar manifest.txt Dickt.class
+
+      - name: Prepare input
+        run: |
+          mkdir -p input
+          mv Dickt.jar input/
+          cp lib/json.jar input/json.jar
+
+      - name: Build Linux packages
+        run: |
+          mkdir -p releases/linux
+          jpackage \
+            --type app-image \
+            --input input \
+            --main-jar Dickt.jar \
+            --main-class Dickt \
+            --name Dickt \
+            --dest releases/linux \
+            --app-version 1.0
+          jpackage \
+            --type deb \
+            --input input \
+            --main-jar Dickt.jar \
+            --main-class Dickt \
+            --name Dickt \
+            --dest releases/linux \
+            --app-version 1.0
+
+      - name: Install FUSE
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+
+      - name: Create AppImage
+        run: |
+          APPDIR="DicktAppDir"
+          mkdir -p "$APPDIR"
+          cp -r releases/linux/Dickt/* "$APPDIR/"
+
+          cat > "$APPDIR/AppRun" << 'EOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE="${SELF%/*}"
+          exec "$HERE/bin/Dickt" "$@"
+          EOF
+          chmod +x "$APPDIR/AppRun"
+
+          cat > "$APPDIR/Dickt.desktop" << 'EOF'
+          [Desktop Entry]
+          Name=Dickt
+          Exec=Dickt
+          Icon=Dickt
+          Type=Application
+          Categories=Utility;
+          EOF
+
+          convert -size 256x256 xc:#4A90D9 \
+            -fill white -pointsize 72 -gravity Center \
+            -annotate 0 "D" \
+            "$APPDIR/Dickt.png"
+
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage \
+            -O appimagetool
+          chmod +x appimagetool
+          ./appimagetool "$APPDIR" releases/linux/Dickt.AppImage
+
+      - name: Upload Linux assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            releases/linux/Dickt.AppImage
+            releases/linux/*.deb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ─────────────────────────────
+  # WINDOWS BUILD
+  # ─────────────────────────────
+  build-windows:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
