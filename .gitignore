@@ -1,0 +1,20 @@
+# Java build files
+*.class
+*.jar
+*.war
+*.ear
+
+# except dependency jar
+!lib/json.jar
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Build folders
+input/
+releases/
