@@ -127,7 +127,7 @@ jobs:
 
       - name: Compile
         shell: bash
-        run: javac -cp ".:lib/json.jar" Dickt.java
+        run: javac -cp ".;lib/json.jar" Dickt.java
 
       - name: Create manifest
         shell: bash
