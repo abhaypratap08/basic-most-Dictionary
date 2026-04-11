@@ -34,7 +34,7 @@ jobs:
           echo "Class-Path: json.jar" >> manifest.txt
 
       - name: Package JAR
-        run: jar cvfm Dickt.jar manifest.txt Dickt.class
+        run: jar cvfm Dickt.jar manifest.txt Dickt*.class
 
       - name: Prepare input
         run: |
@@ -137,7 +137,7 @@ jobs:
 
       - name: Package JAR
         shell: bash
-        run: jar cvfm Dickt.jar manifest.txt Dickt.class
+        run: jar cvfm Dickt.jar manifest.txt Dickt*.class
 
       - name: Prepare input
         shell: bash
@@ -146,7 +146,25 @@ jobs:
           mv Dickt.jar input/
           cp lib/json.jar input/json.jar
 
-      - name: Build Windows EXE
+      - name: Build Windows app image
+        shell: cmd
+        run: |
+          jpackage ^
+            --type app-image ^
+            --input input ^
+            --main-jar Dickt.jar ^
+            --main-class Dickt ^
+            --name Dickt ^
+            --dest releases\windows ^
+            --app-version 1.0 ^
+            --vendor "Abhaypratap08"
+
+      - name: Archive Windows app image
+        shell: powershell
+        run: |
+          Compress-Archive -Path releases/windows/Dickt/* -DestinationPath releases/windows/Dickt-windows-portable.zip
+
+      - name: Build Windows installer
         shell: cmd
         run: |
           jpackage ^
@@ -163,6 +181,8 @@ jobs:
       - name: Upload Windows asset
         uses: softprops/action-gh-release@v2
         with:
-          files: releases/windows/Dickt*.exe
+          files: |
+            releases/windows/Dickt*.exe
+            releases/windows/Dickt-windows-portable.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

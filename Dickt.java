@@ -31,10 +31,11 @@ public class Dickt extends JFrame {
     private JPanel resultCard, root;
     private Point dragOrigin;
     private boolean showingResult = false;
+    private boolean customWindowMaskSupported = false;
 
     public Dickt() {
         setUndecorated(true);
-        setBackground(new Color(0, 0, 0, 0));
+        configureWindowEffects();
         setAlwaysOnTop(true);
         setResizable(false);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -215,7 +216,31 @@ public class Dickt extends JFrame {
     }
 
     private void reShape() {
-        setShape(new RoundRectangle2D.Float(0, 0, W, getHeight(), RAD, RAD));
+        if (!customWindowMaskSupported) {
+            return;
+        }
+        try {
+            setShape(new RoundRectangle2D.Float(0, 0, W, getHeight(), RAD, RAD));
+        } catch (UnsupportedOperationException ignored) {
+            customWindowMaskSupported = false;
+        }
+    }
+
+    private void configureWindowEffects() {
+        GraphicsDevice device = GraphicsEnvironment.getLocalGraphicsEnvironment()
+                .getDefaultScreenDevice();
+
+        if (device.isWindowTranslucencySupported(GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
+            try {
+                setBackground(new Color(0, 0, 0, 0));
+                customWindowMaskSupported = true;
+                return;
+            } catch (UnsupportedOperationException ignored) {
+                // Fall back to an opaque window when the platform rejects translucency at runtime.
+            }
+        }
+
+        setBackground(BG);
     }
 
     private void handleSearch() {
