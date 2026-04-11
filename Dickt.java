@@ -5,10 +5,9 @@ import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.*;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import javax.swing.*;
 import javax.swing.border.*;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 public class Dickt extends JFrame {
     // ── Palette ─────────────────────────────────────────────
@@ -280,21 +279,13 @@ public class Dickt extends JFrame {
     private void process(String json) {
         SwingUtilities.invokeLater(() -> {
             try {
-                JSONArray arr = new JSONArray(json);
-                JSONObject obj = arr.getJSONObject(0);
-
-                String word = obj.getString("word");
-
-                JSONObject def = obj.getJSONArray("meanings")
-                        .getJSONObject(0)
-                        .getJSONArray("definitions")
-                        .getJSONObject(0);
+                String word = findFirstJsonString(json, "word");
+                String definition = findFirstJsonString(json, "definition");
+                String example = findFirstJsonString(json, "example");
 
                 wordLabel.setText(word.toUpperCase());
-                meaningArea.setText(def.getString("definition"));
-
-                String ex = def.optString("example", "");
-                exampleArea.setText(ex.isEmpty() ? "No example available." : ex);
+                meaningArea.setText(definition);
+                exampleArea.setText(example.isEmpty() ? "No example available." : example);
 
                 statusLabel.setText(" ");
                 showingResult = true;
@@ -304,6 +295,89 @@ public class Dickt extends JFrame {
             }
             doLayout(root);
         });
+    }
+
+    private String findFirstJsonString(String json, String key) {
+        String needle = "\"" + key + "\"";
+        int keyIndex = json.indexOf(needle);
+        while (keyIndex >= 0) {
+            int colonIndex = json.indexOf(':', keyIndex + needle.length());
+            if (colonIndex < 0) {
+                break;
+            }
+
+            int valueStart = colonIndex + 1;
+            while (valueStart < json.length() && Character.isWhitespace(json.charAt(valueStart))) {
+                valueStart++;
+            }
+
+            if (valueStart < json.length() && json.charAt(valueStart) == '"') {
+                return readJsonString(json, valueStart);
+            }
+
+            keyIndex = json.indexOf(needle, keyIndex + needle.length());
+        }
+
+        throw new IllegalArgumentException(("Missing JSON string field: " + key).toLowerCase(Locale.ROOT));
+    }
+
+    private String readJsonString(String json, int quoteStart) {
+        StringBuilder value = new StringBuilder();
+        boolean escaping = false;
+
+        for (int i = quoteStart + 1; i < json.length(); i++) {
+            char ch = json.charAt(i);
+
+            if (escaping) {
+                switch (ch) {
+                    case '"':
+                    case '\\':
+                    case '/':
+                        value.append(ch);
+                        break;
+                    case 'b':
+                        value.append('\b');
+                        break;
+                    case 'f':
+                        value.append('\f');
+                        break;
+                    case 'n':
+                        value.append('\n');
+                        break;
+                    case 'r':
+                        value.append('\r');
+                        break;
+                    case 't':
+                        value.append('\t');
+                        break;
+                    case 'u':
+                        if (i + 4 >= json.length()) {
+                            throw new IllegalArgumentException("Invalid unicode escape");
+                        }
+                        value.append((char) Integer.parseInt(json.substring(i + 1, i + 5), 16));
+                        i += 4;
+                        break;
+                    default:
+                        value.append(ch);
+                        break;
+                }
+                escaping = false;
+                continue;
+            }
+
+            if (ch == '\\') {
+                escaping = true;
+                continue;
+            }
+
+            if (ch == '"') {
+                return value.toString();
+            }
+
+            value.append(ch);
+        }
+
+        throw new IllegalArgumentException("Unterminated JSON string");
     }
 
     private JTextArea buildTextArea(String title) {

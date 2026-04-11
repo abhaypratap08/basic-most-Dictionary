@@ -20,18 +20,12 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download JSON lib
-        run: |
-          mkdir -p lib
-          curl -L -o lib/json.jar https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
-
       - name: Compile
-        run: javac -cp ".:lib/json.jar" Dickt.java
+        run: javac Dickt.java
 
       - name: Create manifest
         run: |
           echo "Main-Class: Dickt" > manifest.txt
-          echo "Class-Path: json.jar" >> manifest.txt
 
       - name: Package JAR
         run: jar cvfm Dickt.jar manifest.txt Dickt*.class
@@ -40,7 +34,6 @@ jobs:
         run: |
           mkdir -p input
           mv Dickt.jar input/
-          cp lib/json.jar input/json.jar
 
       - name: Build Linux packages
         run: |
@@ -119,21 +112,14 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Download JSON lib
-        shell: bash
-        run: |
-          mkdir -p lib
-          curl -L -o lib/json.jar https://repo1.maven.org/maven2/org/json/json/20240303/json-20240303.jar
-
       - name: Compile
         shell: bash
-        run: javac -cp ".;lib/json.jar" Dickt.java
+        run: javac Dickt.java
 
       - name: Create manifest
         shell: bash
         run: |
           echo "Main-Class: Dickt" > manifest.txt
-          echo "Class-Path: json.jar" >> manifest.txt
 
       - name: Package JAR
         shell: bash
@@ -144,7 +130,6 @@ jobs:
         run: |
           mkdir -p input
           mv Dickt.jar input/
-          cp lib/json.jar input/json.jar
 
       - name: Build Windows app image
         shell: cmd
