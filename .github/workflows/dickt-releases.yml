@@ -160,6 +160,9 @@ jobs:
             --name Dickt ^
             --dest releases\windows ^
             --app-version 1.0 ^
+            --install-dir "Dickt" ^
+            --win-menu ^
+            --win-shortcut ^
             --win-dir-chooser ^
             --vendor "Abhaypratap08"
 
